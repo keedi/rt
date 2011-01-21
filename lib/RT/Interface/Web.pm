@@ -1731,7 +1731,7 @@ sub CreateTicket {
 
         delete $session{'Attachments'}{ $ARGS{'Token'} || '' }
             unless $ARGS{'KeepAttachments'};
-        $session{'Attachment'} = $session{'Attachment'}
+        $session{'Attachments'} = $session{'Attachments'}
             if @attachments;
     }
     if ( $ARGS{'Attachments'} ) {
@@ -1855,10 +1855,17 @@ sub ProcessUpdateMessage {
         @_
     );
 
-    if ( $args{ARGSRef}->{'UpdateAttachments'}
-        && !keys %{ $args{ARGSRef}->{'UpdateAttachments'} } )
-    {
-        delete $args{ARGSRef}->{'UpdateAttachments'};
+    my @attachments;
+    if ( my $tmp = $session{'Attachments'}{ $args{'ARGSRef'}{'Token'} || '' } ) {
+        push @attachments, grep $_, values %$tmp;
+
+        delete $session{'Attachments'}{ $args{'ARGSRef'}{'Token'} || '' }
+            unless $args{'KeepAttachments'};
+        $session{'Attachments'} = $session{'Attachments'}
+            if @attachments;
+    }
+    if ( $args{ARGSRef}{'UpdateAttachments'} ) {
+        push @attachments, grep $_, values %{ $args{ARGSRef}{'UpdateAttachments'} };
     }
 
     # Strip the signature
@@ -1872,7 +1879,7 @@ sub ProcessUpdateMessage {
     # If, after stripping the signature, we have no message, move the
     # UpdateTimeWorked into adjusted TimeWorked, so that a later
     # ProcessBasics can deal -- then bail out.
-    if (    not $args{ARGSRef}->{'UpdateAttachments'}
+    if (    not @attachments
         and not length $args{ARGSRef}->{'UpdateContent'} )
     {
         if ( $args{ARGSRef}->{'UpdateTimeWorked'} ) {
@@ -1908,18 +1915,6 @@ sub ProcessUpdateMessage {
         );
     }
 
-    my @attachments;
-    if ( my $tmp = $session{'Attachments'}{ $args{'ARGSRef'}{'Token'} || '' } ) {
-        push @attachments, grep $_, values %$tmp;
-
-        delete $session{'Attachments'}{ $args{'ARGSRef'}{'Token'} || '' }
-            unless $args{'KeepAttachments'};
-        $session{'Attachment'} = $session{'Attachment'}
-            if @attachments;
-    }
-    if ( $args{ARGSRef}{'UpdateAttachments'} ) {
-        push @attachments, grep $_, values %{ $args{ARGSRef}{'UpdateAttachments'} };
-    }
     if ( @attachments ) {
         $Message->make_multipart;
         $Message->add_part( $_ ) foreach @attachments;
@@ -2009,7 +2004,39 @@ sub _ProcessUpdateMessageRecipients {
     }
 }
 
+sub ProcessAttachments {
+    my %args = (
+        ARGSRef => {},
+        Token   => '',
+        @_
+    );
 
+    my $token = $args{'Token'};
+
+    my $update_session = 0;
+
+    # deal with deleting uploaded attachments
+    if ( my $del = $args{'ARGSRef'}{'DeleteAttach'} ) {
+        delete $session{'Attachments'}{ $token }{ $_ }
+            foreach ref $del? @$del : ($del);
+
+        $update_session = 1;
+    }
+
+    # store the uploaded attachment in session
+    my $new = $args{'ARGSRef'}{'Attach'};
+    if ( defined $new && length $new ) {
+        my $attachment = MakeMIMEEntity(
+            AttachmentFieldName => 'Attach'
+        );
+
+        my $file_path = Encode::decode_utf8("$new");
+        $session{'Attachments'}{ $token }{ $file_path } = $attachment;
+
+        $update_session = 1;
+    }
+    $session{'Attachments'} = $session{'Attachments'} if $update_session;
+}
 
 =head2 MakeMIMEEntity PARAMHASH
 
