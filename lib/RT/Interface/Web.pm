@@ -1433,7 +1433,7 @@ sub ExpandCSRFToken {
     if ($data->{attach}) {
         my $filename = $data->{attach}{filename};
         my $mime     = $data->{attach}{mime};
-        $HTML::Mason::Commands::session{'Attachments'}{$filename}
+        $HTML::Mason::Commands::session{'Attachments'}{$ARGS->{'Token'}||''}{$filename}
             = $mime;
     }
 
