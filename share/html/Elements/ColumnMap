@@ -120,7 +120,7 @@ $COLUMN_MAP = {
         },
         render    => sub {
             my ($cf, $ocfvs) = @_;
-            my $comp = $m->comp_exists("/Elements/ShowCustomField".$cf->Type)
+            my $comp = ($cf->Id && $m->comp_exists("/Elements/ShowCustomField".$cf->Type))
                      ? "/Elements/ShowCustomField".$cf->Type
                      : undef;
 
